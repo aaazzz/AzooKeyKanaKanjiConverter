@@ -277,7 +277,8 @@ extension DicdataStore {
                 }
             case "ヒ", "ビ", "ピ":
                 if let u1 = nextScalar(), u1 == "ャ" {
-                    if let u2 = nextScalar(), u2 == "ク" {
+                    // 「ヒャッ」は助数詞の前の促音形（ひゃっこ・ろっぴゃっぽん）
+                    if let u2 = nextScalar(), u2 == "ク" || u2 == "ッ" {
                         tokens.append(.ひゃく)
                     } else {
                         tokens.append(.エラー)
@@ -416,9 +417,9 @@ extension DicdataStore {
         let roman: String
         if tokens.allSatisfy({$0.isNumber}) {
             roman = tokens.map {$0.toRoman}.joined()
-        } else if tokens.allSatisfy({$0.isNotNumber}) {
-            return []
         } else {
+            // 位の語だけの読み（ヒャク・ジュウ・ヒャクマン）も parseTokens に任せる。
+            // マン・オクなど 1〜9 も位も無い読みは、parseTokens が空を返すので数にならない。
             let result = parseTokens(tokens: tokens)
             if result.isEmpty {
                 return []
