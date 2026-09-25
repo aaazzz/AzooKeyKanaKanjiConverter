@@ -472,6 +472,21 @@ public final class KanaKanjiConverter {
         return candidates
     }
 
+    /// 候補の先頭文節だけを取り出した候補（文節単位の確定用）。composingCount は先頭文節が使う入力の長さ。
+    private static func firstClauseCandidates(_ clauseResult: [CandidateData]) -> LazyMapSequence<[CandidateData], Candidate> {
+        clauseResult.lazy.map { (candidateData: CandidateData) -> Candidate in
+            let first = candidateData.clauses.first!
+            let count = max(0, first.clause.dataEndIndex)
+            return Candidate(
+                text: first.clause.text,
+                value: first.value,
+                composingCount: first.clause.ranges.reduce(into: .inputCount(0)) { $0 = .composite($0, $1.count) },
+                lastMid: first.clause.mid,
+                data: Array(candidateData.data[0...count])
+            )
+        }
+    }
+
     /// ラティスを処理し変換候補の形にまとめる関数
     /// - Parameters:
     ///   - inputData: 変換対象のInputData。
@@ -526,10 +541,15 @@ public final class KanaKanjiConverter {
 
         if case .完全一致 = options.requestQuery {
             let merged = self.getUniqueCandidate(wholeSentenceUniqueCandidates.chained(userShortcutsCandidates)).sorted(by: {$0.value > $1.value})
+            // 文節単位の確定のために、完全一致でも先頭文節の候補を返す（全文の候補とは別枠。読み全体を使うものは除く）。
+            // どの長さの文節を見せるかは呼び出し側が決めるので、長さを問わず点数の高い順に多めに返す。
+            let firstClauses = self.getUniqueCandidate(Self.firstClauseCandidates(clauseResult))
+                .filter { $0.rubyCount < inputData.convertTarget.count }
+                .min(count: 50) { $0.value > $1.value }
             if options.zenzaiMode.enabled {
-                return ConversionResult(mainResults: merged, firstClauseResults: [])
+                return ConversionResult(mainResults: merged, firstClauseResults: firstClauses)
             } else {
-                return ConversionResult(mainResults: merged, firstClauseResults: [])
+                return ConversionResult(mainResults: merged, firstClauseResults: firstClauses)
             }
         }
         // モデル重みを統合
@@ -579,17 +599,7 @@ public final class KanaKanjiConverter {
             ).min(count: 5, sortedBy: {$0.value > $1.value})
         }
         // 文節のみ変換するパターン（上位5件）
-        let uniqueFirstClauseCandidates = self.getUniqueCandidate((consume clauseResult).lazy.map {(candidateData: CandidateData) -> Candidate in
-            let first = candidateData.clauses.first!
-            let count = max(0, first.clause.dataEndIndex)
-            return Candidate(
-                text: first.clause.text,
-                value: first.value,
-                composingCount: first.clause.ranges.reduce(into: .inputCount(0)) { $0 = .composite($0, $1.count) },
-                lastMid: first.clause.mid,
-                data: Array(candidateData.data[0...count])
-            )
-        })
+        let uniqueFirstClauseCandidates = self.getUniqueCandidate(Self.firstClauseCandidates(consume clauseResult))
 
         var firstClauseResults = uniqueFirstClauseCandidates.min(count: 5) {
             if $0.rubyCount == $1.rubyCount {
