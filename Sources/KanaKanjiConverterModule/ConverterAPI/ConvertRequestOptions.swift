@@ -107,7 +107,9 @@ public struct ConvertRequestOptions: Sendable {
     public var metadata: Metadata?
 
     // MARK: プライベートAPI
-    package var requestQuery: RequestQuery = .default
+    /// - Note: Exposed as public in this fork so that out-of-package research
+    ///   tooling can request the full whole-sentence N-best list.
+    public var requestQuery: RequestQuery = .default
 
     static var `default`: Self {
         Self(
@@ -146,7 +148,7 @@ public struct ConvertRequestOptions: Sendable {
         var versionString: String
     }
 
-    package enum RequestQuery: Sendable {
+    public enum RequestQuery: Sendable {
         case `default`
         case 完全一致
     }

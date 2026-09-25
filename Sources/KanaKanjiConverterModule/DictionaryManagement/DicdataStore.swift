@@ -719,6 +719,7 @@ public final class DicdataStore {
     ) -> [DicdataElement] {
         var result: [DicdataElement] = []
         result.append(contentsOf: self.getJapaneseNumberDicdata(head: convertTarget))
+        result.append(contentsOf: self.getJapaneseCounterDicdata(head: convertTarget))
         // 直前・直後の数値チェックを高速に行う（全文字列から判断）
         do {
             let i = surfaceRange.lowerBound - 1
